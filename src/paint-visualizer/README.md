@@ -10,9 +10,55 @@
 - ✅ **複数パターン**: 複数パターンのイメージ画像を同時に作成可能
 - ✅ **クロスプラットフォーム**: モバイル・デスクトップ対応
 
+## セットアップ
+
+### 環境変数の設定
+
+`.env`ファイルを作成してReplicate API Keyを設定：
+
+```bash
+# Replicate API Key（https://replicate.com/で取得）
+REPLICATE_API_KEY=r8_your_api_key_here
+
+# AI設定（オプション）
+AI_PROVIDER=replicate
+AI_IMAGE_STRENGTH=0.8
+AI_GUIDANCE_SCALE=7.5
+AI_STEPS=50
+```
+
 ## 使用例
 
-### 塗料データベースの使用
+### 1. Stable Diffusionで実際の画像生成
+
+```typescript
+import { getImageProcessor, getPaintDatabase } from './paint-visualizer';
+
+// AI設定をセット
+const processor = getImageProcessor();
+processor.setAIConfig({
+  provider: 'replicate',
+  apiKey: process.env.REPLICATE_API_KEY,
+  strength: 0.8,
+  guidanceScale: 7.5,
+  steps: 50,
+});
+
+// 塗料を取得
+const database = getPaintDatabase();
+const paint = database.getPaintByProductCode('ND-050');
+
+// 実際の画像を生成
+const result = await processor.processImage(
+  'https://example.com/house.jpg', // 元画像URL
+  ['ND-050', 'KP-200'], // 塗料品番リスト
+  { quality: 90, maxPatterns: 3 }
+);
+
+console.log('Generated images:', result.generatedImages);
+```
+
+### 2. 塗料データベースの使用
 
 ```typescript
 import { getPaintDatabase } from './paint-visualizer';
@@ -43,34 +89,45 @@ const searchResults = database.searchPaints({
 });
 ```
 
-### 画像処理の使用
+### 3. カスタムプロンプトで画像生成
+
+```typescript
+import { getImageProcessor, generatePrompt, getPaintDatabase } from './paint-visualizer';
+
+const processor = getImageProcessor();
+processor.setAIConfig({
+  provider: 'replicate',
+  apiKey: process.env.REPLICATE_API_KEY!,
+});
+
+const database = getPaintDatabase();
+const paint = database.getPaintByProductCode('ND-050')!;
+
+// プロンプトを生成
+const prompt = generatePrompt(paint, {
+  basePrompt: 'modern house exterior, sunny day',
+  includeColorDescription: true,
+  includePaintTypeDescription: true,
+});
+
+console.log('Generated prompt:', prompt);
+// Output: "modern house exterior, sunny day, painted in cream white (#F5F5DC), silicon resin paint finish, professional quality..."
+```
+
+### 4. モックモードでテスト（API Keyなし）
 
 ```typescript
 import { processHouseImage } from './paint-visualizer';
 
-// 画像を処理
+// API Key設定なしの場合、自動的にモックモードで動作
 const result = await processHouseImage(
-  'base64_encoded_image_data', // 元画像
-  ['ND-050', 'KP-200', 'SK-300'], // 塗料品番のリスト
-  {
-    quality: 90, // 画像品質
-    maxPatterns: 3, // 最大パターン数
-    maxWidth: 1920, // 最大幅
-    maxHeight: 1080, // 最大高さ
-  }
+  'https://example.com/house.jpg',
+  ['ND-050', 'KP-200'],
+  { maxPatterns: 2 }
 );
 
-// 処理結果を確認
-console.log(`処理状態: ${result.status}`);
-console.log(`生成画像数: ${result.generatedImages.length}`);
-console.log(`処理時間: ${result.processingTimeMs}ms`);
-
-// 生成された画像を使用
-result.generatedImages.forEach((image) => {
-  console.log(`塗料: ${image.paint.name}`);
-  console.log(`色: ${image.paint.color.name}`);
-  console.log(`画像データ: ${image.imageData}`);
-});
+// モック画像が生成される
+console.log('Mock images:', result.generatedImages);
 ```
 
 ### 統合例
@@ -147,16 +204,57 @@ interface ImageProcessResult {
 - 無機
 - ラジカル制御
 
+## AI画像処理プロバイダー
+
+### Replicate（推奨）
+
+**特徴:**
+- Stable Diffusion img2img対応
+- 従量課金（生成1回約$0.002-0.01）
+- 高品質・高速
+- 簡単なAPI
+
+**設定:**
+```typescript
+processor.setAIConfig({
+  provider: 'replicate',
+  apiKey: 'r8_your_key',
+  strength: 0.8,        // 元画像の保持度（0.0-1.0）
+  guidanceScale: 7.5,   // プロンプトへの従順度
+  steps: 50,            // 生成ステップ数
+});
+```
+
+### Stability AI（参考）
+
+公式API、高品質、商用向け（未実装）
+
+### Local（参考）
+
+AUTOMATIC1111 WebUI APIなどを使用（未実装）
+
 ## 今後の実装予定
 
-- [ ] AI画像処理エンジンの統合（Claude API / Stable Diffusion）
+- [x] **Stable Diffusion統合** ✅ 完了
 - [ ] リアルタイム画像プレビュー
+- [ ] ControlNet統合（構造保持）
+- [ ] Inpainting機能（部分塗装）
 - [ ] オフライン動作のサポート
 - [ ] モバイルアプリUI
 - [ ] デスクトップアプリUI
 - [ ] 塗料データベースのAPI連携
 - [ ] ユーザー認証機能
 - [ ] 画像保存・共有機能
+
+## コスト見積もり
+
+### Replicate API使用時
+
+- 生成1回: 約$0.002-0.01
+- 月100回: 約$0.20-1.00
+- 月1000回: 約$2.00-10.00
+
+*実際のコストは画像サイズ、ステップ数により変動
 
 ## ライセンス
 

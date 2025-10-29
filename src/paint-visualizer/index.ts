@@ -35,6 +35,9 @@ export type {
   GeneratedImage,
   Platform,
   UserSession,
+  AIProvider,
+  AIProcessingConfig,
+  PromptGenerationConfig,
 } from './types.js';
 
 // データベース機能のエクスポート
@@ -46,6 +49,22 @@ export {
   getImageProcessor,
   processHouseImage,
 } from './image-processor.js';
+
+// AI画像処理プロバイダーのエクスポート
+export {
+  AIImageProvider,
+  ReplicateProvider,
+  StabilityAIProvider,
+  LocalProvider,
+  createAIProvider,
+} from './ai-provider.js';
+
+// プロンプト生成のエクスポート
+export {
+  PromptGenerator,
+  getPromptGenerator,
+  generatePrompt,
+} from './prompt-generator.js';
 
 /**
  * バージョン情報

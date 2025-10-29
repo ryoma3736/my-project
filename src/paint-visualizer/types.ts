@@ -166,3 +166,42 @@ export interface PaintSearchCriteria {
     max?: number;
   };
 }
+
+/**
+ * AI画像処理プロバイダー
+ */
+export type AIProvider = 'replicate' | 'stability-ai' | 'huggingface' | 'local';
+
+/**
+ * AI画像処理設定
+ */
+export interface AIProcessingConfig {
+  /** プロバイダー */
+  provider: AIProvider;
+  /** APIキー */
+  apiKey?: string;
+  /** モデル名 */
+  modelName?: string;
+  /** 画像強度（0.0-1.0、元画像をどれだけ保持するか） */
+  strength?: number;
+  /** ガイダンススケール（プロンプトへの従順度） */
+  guidanceScale?: number;
+  /** 生成ステップ数 */
+  steps?: number;
+  /** シード値（再現性のため） */
+  seed?: number;
+}
+
+/**
+ * プロンプト生成設定
+ */
+export interface PromptGenerationConfig {
+  /** ベースプロンプト */
+  basePrompt?: string;
+  /** ネガティブプロンプト（生成したくない要素） */
+  negativePrompt?: string;
+  /** 色の説明を含めるか */
+  includeColorDescription?: boolean;
+  /** 塗料タイプの説明を含めるか */
+  includePaintTypeDescription?: boolean;
+}

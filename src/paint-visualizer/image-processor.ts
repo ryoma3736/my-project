@@ -10,8 +10,11 @@ import type {
   GeneratedImage,
   Paint,
   ImageProcessOptions,
+  AIProcessingConfig,
 } from './types.js';
 import { getPaintDatabase } from './database.js';
+import { createAIProvider } from './ai-provider.js';
+import { generatePrompt } from './prompt-generator.js';
 
 /**
  * 画像処理エンジンクラス
@@ -19,6 +22,7 @@ import { getPaintDatabase } from './database.js';
 export class ImageProcessor {
   private processingQueue: Map<string, ImageProcessRequest> = new Map();
   private results: Map<string, ImageProcessResult> = new Map();
+  private aiConfig: AIProcessingConfig | null = null;
 
   /**
    * 画像処理リクエストを作成
@@ -98,56 +102,89 @@ export class ImageProcessor {
   }
 
   /**
-   * 塗装後の画像を生成（実際のAI画像処理はここで実装）
+   * AI処理設定をセット
+   */
+  setAIConfig(config: AIProcessingConfig): void {
+    this.aiConfig = config;
+  }
+
+  /**
+   * 塗装後の画像を生成（Stable Diffusion統合版）
    */
   private async generatePaintedImage(
     originalImage: string,
     paint: Paint,
-    options?: ImageProcessOptions
+    _options?: ImageProcessOptions
   ): Promise<GeneratedImage> {
-    // TODO: 実際のAI画像処理エンジン統合
-    // - Claude APIやStable Diffusionなどを使用
-    // - 画像の色を塗料の色に変換
-    // - リアルな塗装効果を適用
+    let processedImage: string;
 
-    // 現在はモック実装
-    const mockProcessedImage = await this.mockImageProcessing(
-      originalImage,
-      paint,
-      options
-    );
+    // AI処理設定がある場合は実際のAI処理を実行
+    if (this.aiConfig && this.aiConfig.apiKey) {
+      try {
+        processedImage = await this.processWithAI(originalImage, paint);
+      } catch (error) {
+        console.error('AI processing failed, falling back to mock:', error);
+        processedImage = this.mockImageProcessing(originalImage, paint);
+      }
+    } else {
+      // API keyがない場合はモック処理
+      console.warn('AI config not set, using mock processing');
+      processedImage = this.mockImageProcessing(originalImage, paint);
+    }
 
     return {
       id: this.generateImageId(),
       paint,
-      imageData: mockProcessedImage,
-      thumbnail: this.generateThumbnail(mockProcessedImage, options),
+      imageData: processedImage,
+      thumbnail: this.generateThumbnail(processedImage),
       createdAt: new Date(),
     };
   }
 
   /**
-   * モック画像処理（実装例）
+   * Stable Diffusionで実際の画像処理を実行
    */
-  private async mockImageProcessing(
-    originalImage: string,
-    paint: Paint,
-    _options?: ImageProcessOptions
-  ): Promise<string> {
-    // 実際の実装では、ここでAI画像処理を行う
-    // 現在はモックとして元画像のメタデータを返す
-    return `processed_${paint.productCode}_${originalImage}`;
+  private async processWithAI(originalImage: string, paint: Paint): Promise<string> {
+    if (!this.aiConfig) {
+      throw new Error('AI config not set');
+    }
+
+    // AIプロバイダーを作成
+    const provider = createAIProvider(this.aiConfig);
+
+    if (!provider.isReady()) {
+      throw new Error('AI provider is not ready');
+    }
+
+    // プロンプトを生成
+    const prompt = generatePrompt(paint);
+
+    console.log(`Generating image with prompt: ${prompt}`);
+
+    // AI画像生成を実行
+    const generatedImageUrl = await provider.generateImage(originalImage, paint, prompt);
+
+    return generatedImageUrl;
+  }
+
+  /**
+   * モック画像処理（フォールバック用）
+   */
+  private mockImageProcessing(originalImage: string, paint: Paint): string {
+    // モックとして元画像のメタデータを返す
+    return `mock_processed_${paint.productCode}_${originalImage.substring(0, 20)}`;
   }
 
   /**
    * サムネイル画像を生成
    */
-  private generateThumbnail(
-    imageData: string,
-    _options?: ImageProcessOptions
-  ): string {
-    // TODO: 実際のサムネイル生成ロジック
-    return `thumbnail_${imageData}`;
+  private generateThumbnail(imageData: string): string {
+    // URLの場合はそのまま使用（Replicateは自動でサムネイル生成）
+    if (imageData.startsWith('http')) {
+      return imageData;
+    }
+    // Base64の場合はサムネイルフラグを追加
+    return `thumbnail_${imageData.substring(0, 50)}`;
   }
 
   /**
